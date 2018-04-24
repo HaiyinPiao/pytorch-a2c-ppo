@@ -26,8 +26,8 @@ parser.add_argument('--max-expert-state-num', type=int, default=50000, metavar='
 args = parser.parse_args()
 
 use_gpu = True
-args.env_name = 'Pendulum-v0'
-args.model_path = '../assets/learned_models/Pendulum-v0_a2c.p'
+args.env_name = 'BipedalWalker-v2'
+args.model_path = '../assets/learned_models/BipedalWalker-v2_a2c.p'
 args.render = True
 
 

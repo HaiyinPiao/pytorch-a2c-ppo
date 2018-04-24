@@ -34,6 +34,12 @@ def collect_samples(pid, queue, env, policy, custom_reward, mean_action,
                 action = policy.select_action(state_var)[0].numpy()
             action = int(action) if policy.is_disc_action else action.astype(np.float64)
             next_state, reward, done, _ = env.step(action)
+
+            # Added for shaped reward by haiyinpiao.
+            # for punishing the bipedwalker from stucking in where it is originally.
+            # if (next_state[2]<0.2):
+            #     reward -=2
+            # -------------------------
             reward_episode += reward
             if running_state is not None:
                 next_state = running_state(next_state, update=update_rs)

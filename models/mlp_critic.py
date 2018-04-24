@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from utils.math import *
 
 class Value(nn.Module):
-    def __init__(self, state_dim, hidden_size=(100,100), activation='tanh'):
+    def __init__(self, state_dim, hidden_size=(200,200), activation='tanh'):
         super().__init__()
         if activation == 'tanh':
             self.activation = F.tanh

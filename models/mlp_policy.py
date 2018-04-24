@@ -5,7 +5,7 @@ from utils.math import *
 
 
 class Policy(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_size=(100,100), activation='tanh', log_std=0):
+    def __init__(self, state_dim, action_dim, hidden_size=(200,200), activation='tanh', log_std=0):
         super().__init__()
         self.is_disc_action = False
         if activation == 'tanh':
@@ -49,8 +49,9 @@ class Policy(nn.Module):
 
     def select_action(self, x):
         action_mean, _, action_std = self.forward(x)
-        action = 2.0*torch.normal(action_mean, action_std)
-        action.clamp(-2., 2.)
+        # action = 2.0*torch.normal(action_mean, action_std)
+        # action.clamp(-2., 2.)
+        action = torch.normal(action_mean, action_std)
 
         return action.data
 
