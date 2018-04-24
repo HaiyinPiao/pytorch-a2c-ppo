@@ -16,5 +16,5 @@ def normal_log_density(x, mean, log_std, std):
 
 def set_init(layers):
     for layer in layers:
-        nn.init.normal(layer.weight, mean=0., std=0.1)
+        nn.init.normal(layer.weight, mean=0., std=0.5)
         nn.init.constant(layer.bias, 0.1)

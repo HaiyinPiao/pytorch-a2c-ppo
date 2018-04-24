@@ -4,8 +4,9 @@ import os
 import sys
 import pickle
 import time
+os.environ["OMP_NUM_THREADS"] = "1"
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.append('/home/haiyinpiao/code_repo/PyTorch-RL/core')
+sys.path.append('/home/niao2/haiyinpiao/git-base/pytorch-a2c-ppo/core')
 
 from utils import *
 from models.mlp_policy import Policy
@@ -15,7 +16,6 @@ from torch.autograd import Variable
 from core.a2c import a2c_step
 from core.common import estimate_advantages
 from core.agent import Agent
-os.environ["OMP_NUM_THREADS"] = "1"
 
 Tensor = DoubleTensor
 torch.set_default_tensor_type('torch.DoubleTensor')
@@ -36,11 +36,11 @@ parser.add_argument('--tau', type=float, default=0.95, metavar='G',
                     help='gae (default: 0.95)')
 parser.add_argument('--l2-reg', type=float, default=1e-3, metavar='G',
                     help='l2 regularization regression (default: 1e-3)')
-parser.add_argument('--num-threads', type=int, default=4, metavar='N',
+parser.add_argument('--num-threads', type=int, default=48, metavar='N',
                     help='number of threads for agent (default: 4)')
 parser.add_argument('--seed', type=int, default=1, metavar='N',
                     help='random seed (default: 1)')
-parser.add_argument('--min-batch-size', type=int, default=2048, metavar='N',
+parser.add_argument('--min-batch-size', type=int, default=40960, metavar='N',
                     help='minimal batch size per A2C update (default: 2048)')
 parser.add_argument('--max-iter-num', type=int, default=5000, metavar='N',
                     help='maximal number of main iterations (default: 500)')
@@ -52,7 +52,7 @@ args = parser.parse_args()
 
 use_gpu = True
 args.env_name = 'Pendulum-v0'
-# args.model_path = '../assets/learned_models/Pendulum-v0_a2c.p'
+args.model_path = '../assets/learned_models/Pendulum-v0_a2c.p'
 
 def env_factory(thread_id):
     env = gym.make(args.env_name)
@@ -87,8 +87,8 @@ if use_gpu:
     value_net = value_net.cuda()
 del env_dummy
 
-optimizer_policy = torch.optim.Adam(policy_net.parameters(), lr=1e-1)
-optimizer_value = torch.optim.Adam(value_net.parameters(), lr=1e-1)
+optimizer_policy = torch.optim.Adam(policy_net.parameters(), lr=5e-4)
+optimizer_value = torch.optim.Adam(value_net.parameters(), lr=5e-4)
 
 """create agent"""
 agent = Agent(env_factory, policy_net, running_state=running_state, render=args.render, num_threads=args.num_threads)
