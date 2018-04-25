@@ -3,9 +3,16 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from utils.math import *
 
+def to_np(x): # from tensor to numpy
+    return x.data.cpu().numpy()
+
+def to_var(x): # from tensor to Variable
+    if torch.cuda.is_available():
+        x = x.cuda()
+    return Variable(x)
 
 class Policy(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_size=(200,200), activation='tanh', log_std=0):
+    def __init__(self, state_dim, action_dim, hidden_size=(200,100,50), activation='relu', log_std=0):
         super().__init__()
         self.is_disc_action = False
         if activation == 'tanh':
@@ -36,7 +43,7 @@ class Policy(nn.Module):
     def forward(self, x):
         self.eval()
 
-        for affine, bn in self.affine_layers_p, self.bn_layers_p:
+        for affine, bn in zip(self.affine_layers_p, self.bn_layers_p):
             x = affine(x)
             x = bn(x)
             x = self.activation(x)
@@ -52,6 +59,8 @@ class Policy(nn.Module):
         # action = 2.0*torch.normal(action_mean, action_std)
         # action.clamp(-2., 2.)
         action = torch.normal(action_mean, action_std)
+
+        # action.clamp(-1., +1.)
 
         return action.data
 

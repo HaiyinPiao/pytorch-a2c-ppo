@@ -1,13 +1,13 @@
-import multiprocessing
+import torch.multiprocessing as mp
 from utils.replay_memory import Memory
 from utils.torch import *
 from torch.autograd import Variable
 import math
 import time
-
+import numpy as np
 
 def collect_samples(pid, queue, env, policy, custom_reward, mean_action,
-                    tensor, render, running_state, update_rs, min_batch_size):
+                    tensor, render, running_state, update_rs, min_batch_size, g_itr):
     torch.randn(pid, )
     log = dict()
     memory = Memory()
@@ -19,6 +19,11 @@ def collect_samples(pid, queue, env, policy, custom_reward, mean_action,
     min_c_reward = 1e6
     max_c_reward = -1e6
     num_episodes = 0
+
+    EPS_MAX = 0.9995
+    eps_val = EPS_MAX**float(g_itr)
+    if eps_val < 0.1:
+        eps_val = 0.1
 
     while num_steps < min_batch_size:
         state = env.reset()
@@ -32,6 +37,11 @@ def collect_samples(pid, queue, env, policy, custom_reward, mean_action,
                 action = policy(state_var)[0].data[0].numpy()
             else:
                 action = policy.select_action(state_var)[0].numpy()
+                # print(action)
+                eps = np.random.randn(action.size)*eps_val
+                action = action + eps
+                np.clip(action, -1., 1.)
+
             action = int(action) if policy.is_disc_action else action.astype(np.float64)
             next_state, reward, done, _ = env.step(action)
 
@@ -121,23 +131,24 @@ class Agent:
         for i in range(num_threads):
             self.env_list.append(self.env_factory(i))
 
-    def collect_samples(self, min_batch_size):
+    def collect_samples(self, min_batch_size, g_itr):
+
         t_start = time.time()
         if use_gpu:
             self.policy.cpu()
         thread_batch_size = int(math.floor(min_batch_size / self.num_threads))
-        queue = multiprocessing.Queue()
+        queue = mp.Queue()
         workers = []
 
         for i in range(self.num_threads-1):
             worker_args = (i+1, queue, self.env_list[i + 1], self.policy, self.custom_reward, self.mean_action,
-                           self.tensor, False, self.running_state, False, thread_batch_size)
-            workers.append(multiprocessing.Process(target=collect_samples, args=worker_args))
+                           self.tensor, False, self.running_state, False, thread_batch_size, g_itr)
+            workers.append(mp.Process(target=collect_samples, args=worker_args))
         for worker in workers:
             worker.start()
 
         memory, log = collect_samples(0, None, self.env_list[0], self.policy, self.custom_reward, self.mean_action,
-                                      self.tensor, self.render, self.running_state, True, thread_batch_size)
+                                      self.tensor, self.render, self.running_state, True, thread_batch_size, g_itr)
 
         worker_logs = [None] * len(workers)
         worker_memories = [None] * len(workers)

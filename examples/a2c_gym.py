@@ -6,7 +6,7 @@ import pickle
 import time
 os.environ["OMP_NUM_THREADS"] = "1"
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.append('/home/niao2/haiyinpiao/git-base/pytorch-a2c-ppo/core')
+sys.path.append('/home/haiyinpiao/code_repo/pytorch-a2c-ppo/core')
 
 from utils import *
 from models.mlp_policy import Policy
@@ -19,6 +19,7 @@ from core.agent import Agent
 
 Tensor = DoubleTensor
 torch.set_default_tensor_type('torch.DoubleTensor')
+# Tensor = FloatTensor
 # torch.set_default_tensor_type('torch.FloatTensor')
 
 parser = argparse.ArgumentParser(description='PyTorch A2C example')
@@ -36,13 +37,13 @@ parser.add_argument('--tau', type=float, default=0.95, metavar='G',
                     help='gae (default: 0.95)')
 parser.add_argument('--l2-reg', type=float, default=1e-3, metavar='G',
                     help='l2 regularization regression (default: 1e-3)')
-parser.add_argument('--num-threads', type=int, default=10, metavar='N',
+parser.add_argument('--num-threads', type=int, default=4, metavar='N',
                     help='number of threads for agent (default: 4)')
 parser.add_argument('--seed', type=int, default=1, metavar='N',
                     help='random seed (default: 1)')
-parser.add_argument('--min-batch-size', type=int, default=4096, metavar='N',
+parser.add_argument('--min-batch-size', type=int, default=2048, metavar='N',
                     help='minimal batch size per A2C update (default: 2048)')
-parser.add_argument('--max-iter-num', type=int, default=5000, metavar='N',
+parser.add_argument('--max-iter-num', type=int, default=50000, metavar='N',
                     help='maximal number of main iterations (default: 500)')
 parser.add_argument('--log-interval', type=int, default=1, metavar='N',
                     help='interval between training status logs (default: 1)')
@@ -68,7 +69,8 @@ if use_gpu:
 env_dummy = env_factory(0)
 state_dim = env_dummy.observation_space.shape[0]
 is_disc_action = len(env_dummy.action_space.shape) == 0
-ActionTensor = LongTensor if is_disc_action else DoubleTensor
+# ActionTensor = LongTensor if is_disc_action else DoubleTensor
+ActionTensor = LongTensor if is_disc_action else FloatTensor
 
 running_state = ZFilter((state_dim,), clip=5)
 # running_reward = ZFilter((1,), demean=False, clip=10)
@@ -87,8 +89,8 @@ if use_gpu:
     value_net = value_net.cuda()
 del env_dummy
 
-optimizer_policy = torch.optim.Adam(policy_net.parameters(), lr=1e-3)
-optimizer_value = torch.optim.Adam(value_net.parameters(), lr=3e-3)
+optimizer_policy = torch.optim.Adam(policy_net.parameters(), lr=4e-4)
+optimizer_value = torch.optim.Adam(value_net.parameters(), lr=8e-4)
 
 """create agent"""
 agent = Agent(env_factory, policy_net, running_state=running_state, render=args.render, num_threads=args.num_threads)
@@ -116,7 +118,7 @@ def update_params(batch):
 def main_loop():
     for i_iter in range(args.max_iter_num):
         """generate multiple trajectories that reach the minimum batch_size"""
-        batch, log = agent.collect_samples(args.min_batch_size)
+        batch, log = agent.collect_samples(args.min_batch_size, i_iter)
         t0 = time.time()
         update_params(batch)
         # for i in range(10):
