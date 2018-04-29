@@ -36,7 +36,7 @@ class Policy(nn.Module):
         # self.action_mean.bias.data.mul_(0.0)
 
         self.action_log_std = nn.Parameter(torch.ones(1, action_dim) * log_std)
-        self.entropy_coef = .05
+        self.entropy_coef = .01
 
         set_init(self.affine_layers_p)
         set_init([self.action_mean])

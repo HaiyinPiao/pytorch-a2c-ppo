@@ -45,6 +45,7 @@ def ppo_step(policy_net, value_net, optimizer_policy, optimizer_value, optim_val
     surr1 = ratio * advantages_var
     surr2 = torch.clamp(ratio, 1.0 - clip_epsilon, 1.0 + clip_epsilon) * advantages_var
     policy_surr = -torch.min(surr1, surr2).mean()
+    entropy = torch.exp(entropy)
     policy_surr -= entropy
     optimizer_policy.zero_grad()
     policy_surr.backward()

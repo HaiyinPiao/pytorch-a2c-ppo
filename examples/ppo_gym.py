@@ -57,7 +57,7 @@ args = parser.parse_args()
 
 use_gpu = True
 args.env_name = 'RoboschoolWalker2d-v1'
-# args.model_path = '../assets/learned_models/RoboschoolWalker2d-v1_ppo.p'
+args.model_path = '../assets/learned_models/RoboschoolWalker2d-v1_ppo.p'
 
 
 def env_factory(thread_id):
