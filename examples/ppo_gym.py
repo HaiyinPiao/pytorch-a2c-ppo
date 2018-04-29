@@ -1,10 +1,14 @@
+from OpenGL import GLU
+import gym, roboschool
 import argparse
-import gym
 import os
 import sys
 import pickle
 import time
+import numpy as np
+os.environ["OMP_NUM_THREADS"] = "1"
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append('/home/haiyinpiao/code_repo/pytorch-a2c-ppo/core')
 
 from utils import *
 from models.mlp_policy import Policy
@@ -43,13 +47,17 @@ parser.add_argument('--seed', type=int, default=1, metavar='N',
                     help='random seed (default: 1)')
 parser.add_argument('--min-batch-size', type=int, default=2048, metavar='N',
                     help='minimal batch size per PPO update (default: 2048)')
-parser.add_argument('--max-iter-num', type=int, default=500, metavar='N',
+parser.add_argument('--max-iter-num', type=int, default=5000, metavar='N',
                     help='maximal number of main iterations (default: 500)')
 parser.add_argument('--log-interval', type=int, default=1, metavar='N',
                     help='interval between training status logs (default: 10)')
-parser.add_argument('--save-model-interval', type=int, default=0, metavar='N',
+parser.add_argument('--save-model-interval', type=int, default=10, metavar='N',
                     help="interval between saving model (default: 0, means don't save)")
 args = parser.parse_args()
+
+use_gpu = True
+args.env_name = 'RoboschoolWalker2d-v1'
+# args.model_path = '../assets/learned_models/RoboschoolWalker2d-v1_ppo.p'
 
 
 def env_factory(thread_id):
@@ -133,7 +141,7 @@ def update_params(batch, i_iter):
 def main_loop():
     for i_iter in range(args.max_iter_num):
         """generate multiple trajectories that reach the minimum batch_size"""
-        batch, log = agent.collect_samples(args.min_batch_size)
+        batch, log = agent.collect_samples(args.min_batch_size, i_iter)
         t0 = time.time()
         update_params(batch, i_iter)
         t1 = time.time()

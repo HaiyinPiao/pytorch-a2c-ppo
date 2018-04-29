@@ -20,10 +20,10 @@ def collect_samples(pid, queue, env, policy, custom_reward, mean_action,
     max_c_reward = -1e6
     num_episodes = 0
 
-    EPS_MAX = 0.9995
-    eps_val = EPS_MAX**float(g_itr)
-    if eps_val < 0.1:
-        eps_val = 0.1
+    # EPS_MAX = 0.9995
+    # eps_val = EPS_MAX**float(g_itr)
+    # if eps_val < 0.1:
+    #     eps_val = 0.1
 
     while num_steps < min_batch_size:
         state = env.reset()
@@ -38,9 +38,9 @@ def collect_samples(pid, queue, env, policy, custom_reward, mean_action,
             else:
                 action = policy.select_action(state_var)[0].numpy()
                 # print(action)
-                eps = np.random.randn(action.size)*eps_val
-                action = action + eps
-                np.clip(action, -1., 1.)
+                # eps = np.random.randn(action.size)*eps_val
+                # action = action + eps
+                # np.clip(action, -1., 1.)
 
             action = int(action) if policy.is_disc_action else action.astype(np.float64)
             next_state, reward, done, _ = env.step(action)

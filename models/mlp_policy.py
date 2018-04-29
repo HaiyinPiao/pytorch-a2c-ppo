@@ -12,7 +12,7 @@ def to_var(x): # from tensor to Variable
     return Variable(x)
 
 class Policy(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_size=(200,100,50), activation='relu', log_std=0):
+    def __init__(self, state_dim, action_dim, hidden_size=(200,128), activation='relu', log_std=0):
         super().__init__()
         self.is_disc_action = False
         if activation == 'tanh':
@@ -36,6 +36,7 @@ class Policy(nn.Module):
         # self.action_mean.bias.data.mul_(0.0)
 
         self.action_log_std = nn.Parameter(torch.ones(1, action_dim) * log_std)
+        self.entropy_coef = .05
 
         set_init(self.affine_layers_p)
         set_init([self.action_mean])
@@ -76,6 +77,13 @@ class Policy(nn.Module):
     def get_log_prob(self, x, actions):
         action_mean, action_log_std, action_std = self.forward(x)
         return normal_log_density(actions, action_mean, action_log_std, action_std)
+
+    def get_log_prob_entropy(self, x, actions):
+        action_mean, action_log_std, action_std = self.forward(x)
+        entropy = 0.5 + 0.5 * math.log(2 * math.pi) + action_log_std
+        entropy = entropy.sum(-1).mean()
+        entropy *= self.entropy_coef
+        return normal_log_density(actions, action_mean, action_log_std, action_std), entropy
 
     def get_fim(self, x):
         mean, _, _ = self.forward(x)

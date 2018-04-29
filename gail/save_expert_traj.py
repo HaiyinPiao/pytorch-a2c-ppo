@@ -1,8 +1,10 @@
 import argparse
-import gym
+from OpenGL import GLU
+import gym, roboschool
 import os
 import sys
 import pickle
+import numpy as np
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from itertools import count
@@ -26,8 +28,8 @@ parser.add_argument('--max-expert-state-num', type=int, default=50000, metavar='
 args = parser.parse_args()
 
 use_gpu = True
-args.env_name = 'BipedalWalker-v2'
-args.model_path = '../assets/learned_models/BipedalWalker-v2_a2c.p'
+args.env_name = 'RoboschoolWalker2d-v1'
+# args.model_path = '../assets/learned_models/RoboschoolWalker2d-v1_ppo.p'
 args.render = True
 
 
