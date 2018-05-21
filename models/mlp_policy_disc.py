@@ -37,6 +37,15 @@ class DiscretePolicy(nn.Module):
         action = action_prob.multinomial()
         return action.data
 
+    # def select_ma_action(self, x):
+    #     action = []
+    #     for i in range(n):
+    #         action_prob = self.forward(x[:,i,:])
+    #         # print(action_prob)
+    #         # print(action_prob.multinomial().data)
+    #         action.append(action_prob.multinomial())
+    #     return action
+
     def get_kl(self, x):
         action_prob1 = self.forward(x)
         action_prob0 = Variable(action_prob1.data)

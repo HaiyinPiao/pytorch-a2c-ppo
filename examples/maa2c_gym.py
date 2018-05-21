@@ -4,9 +4,10 @@ import os
 import sys
 import pickle
 import time
+import torch as th
 os.environ["OMP_NUM_THREADS"] = "1"
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.append('/home/haiyinpiao/code_repo/pytorch-a2c-ppo/core')
+sys.path.append('/home/niao2/haiyinpiao/code_repo/pytorch-a2c-ppo/core')
 
 from utils import *
 from models.mlp_policy import Policy
@@ -37,7 +38,7 @@ parser.add_argument('--tau', type=float, default=0.95, metavar='G',
                     help='gae (default: 0.95)')
 parser.add_argument('--l2-reg', type=float, default=1e-3, metavar='G',
                     help='l2 regularization regression (default: 1e-3)')
-parser.add_argument('--num-threads', type=int, default=4, metavar='N',
+parser.add_argument('--num-threads', type=int, default=1, metavar='N',
                     help='number of threads for agent (default: 4)')
 parser.add_argument('--seed', type=int, default=1, metavar='N',
                     help='random seed (default: 1)')
@@ -90,7 +91,6 @@ num_adversaries = min(env_dummy.n, args.num_adversaries)
 obs_shape_n = [env_dummy.observation_space[i].shape[0] for i in range(env_dummy.n)]
 act_shape_n = [env_dummy.action_space[i].n for i in range(env_dummy.n)]
 
-
 state_dim = obs_shape_n[0]
 action_dim = act_shape_n[0]
 
@@ -109,46 +109,85 @@ value_net = []
 if args.model_path is None:
     if is_disc_action:
         for i in range(env_dummy.n):
-            policy_net.append(DiscretePolicy(state_dim, action_dim))
-            print(policy_net[i])
+            policy_net.append(DiscretePolicy(obs_shape_n[i], act_shape_n[i]))
+            # print(policy_net[i])
     else:
-        policy_net = Policy(state_dim, env_dummy.action_space.shape[0], log_std=args.log_std)
+        policy_net = Policy(obs_shape_n[i], env_dummy.action_space.shape[0], log_std=args.log_std)
     # value_net = Value(state_dim)
     for i in range(env_dummy.n):
-        value_net.append(Value(state_dim))
-        print(value_net[i])
+        value_net.append(Value(obs_shape_n[i]))
+        # print(value_net[i])
 else:
+    # TODO
     policy_net, value_net, running_state = pickle.load(open(args.model_path, "rb"))
     # policy_net = [env_dummy.observation_space[i].shape[0] for i in range(env_dummy.n)]
 if use_gpu:
-    policy_net = policy_net.cuda()
-    value_net = value_net.cuda()
+    # policy_net = policy_net.cuda()
+    # value_net = value_net.cuda()
+    for i in range(env_dummy.n):
+        policy_net[i].cuda()
+        value_net[i].cuda()
+
+optimizer_policy = []
+optimizer_value = []
+for i in range(env_dummy.n):
+    optimizer_policy.append(torch.optim.Adam(policy_net[i].parameters(), lr=4e-4))
+    optimizer_value.append(torch.optim.Adam(value_net[i].parameters(), lr=8e-4))
+
 del env_dummy
 
-optimizer_policy = torch.optim.Adam(policy_net.parameters(), lr=4e-4)
-optimizer_value = torch.optim.Adam(value_net.parameters(), lr=8e-4)
-
 """create agent"""
-agent = Agent(env_factory, policy_net, running_state=running_state, render=args.render, num_threads=args.num_threads)
+agent = Agent(obs_shape_n, act_shape_n, env_factory, policy_net, running_state=running_state, render=args.render, num_threads=args.num_threads)
 
+def to_tensor_var(x, use_cuda=True, dtype="float"):
+    FloatTensor = th.cuda.FloatTensor if use_cuda else th.FloatTensor
+    LongTensor = th.cuda.LongTensor if use_cuda else th.LongTensor
+    ByteTensor = th.cuda.ByteTensor if use_cuda else th.ByteTensor
+    if dtype == "float":
+        x = np.array(x, dtype=np.float64).tolist()
+        return Variable(FloatTensor(x))
+    elif dtype == "long":
+        x = np.array(x, dtype=np.long).tolist()
+        return Variable(LongTensor(x))
+    elif dtype == "byte":
+        x = np.array(x, dtype=np.byte).tolist()
+        return Variable(ByteTensor(x))
+    else:
+        x = np.array(x, dtype=np.float64).tolist()
+        return Variable(FloatTensor(x))
+ 
 
 def update_params(batch):
-    policy_net.train()
-    value_net.train()
+    print("here")
+    for i in range(len(policy_net)):
+        policy_net[i].train()
+        value_net[i].train()
 
-    states = torch.from_numpy(np.stack(batch.state))
-    actions = torch.from_numpy(np.stack(batch.action))
-    rewards = torch.from_numpy(np.stack(batch.reward))
-    masks = torch.from_numpy(np.stack(batch.mask).astype(np.float64))
-    if use_gpu:
-        states, actions, rewards, masks = states.cuda(), actions.cuda(), rewards.cuda(), masks.cuda()
-    values = value_net(Variable(states, volatile=True)).data
+    # states = torch.from_numpy(np.stack(batch.state))
+    # actions = torch.from_numpy(np.stack(batch.action))
+    # rewards = torch.from_numpy(np.stack(batch.reward))
+    # masks = torch.from_numpy(np.stack(batch.mask).astype(np.float64))
+    states = to_tensor_var(batch.state).view(-1, agent.n_agents, agent.obs_shape_n[0])
+    actions = to_tensor_var(batch.action).view(-1, agent.n_agents, agent.act_shape_n[0])
+    rewards = to_tensor_var(batch.reward).view(-1, agent.n_agents, 1)
+    masks = to_tensor_var(batch.mask).view(-1, agent.n_agents, 1)
 
-    """get advantage estimation from the trajectories"""
-    advantages, returns = estimate_advantages(rewards, masks, values, args.gamma, args.tau, use_gpu)
+    whole_states_var = states.view(-1, agent.whole_critic_state_dim)
+    whole_actions_var = actions.view(-1, agent.whole_critic_action_dim)
 
-    """perform TRPO update"""
-    a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, actions, returns, advantages, args.l2_reg)
+    print( whole_states_var, whole_actions_var )
+
+
+
+    # if use_gpu:
+    #     states, actions, rewards, masks = states.cuda(), actions.cuda(), rewards.cuda(), masks.cuda()
+    # values = value_net(Variable(states, volatile=True)).data
+
+    # """get advantage estimation from the trajectories"""
+    # advantages, returns = estimate_advantages(rewards, masks, values, args.gamma, args.tau, use_gpu)
+
+    # """perform TRPO update"""
+    # a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, actions, returns, advantages, args.l2_reg)
 
 
 def main_loop():
@@ -156,7 +195,7 @@ def main_loop():
         """generate multiple trajectories that reach the minimum batch_size"""
         batch, log = agent.collect_samples(args.min_batch_size, i_iter)
         t0 = time.time()
-        update_params(batch)
+        # update_params(batch)
         # for i in range(10):
         #     update_params(batch)
         #     # print("update", i_iter, "iteration", i, "updating-step")
@@ -166,13 +205,13 @@ def main_loop():
             print('{}\tT_sample {:.4f}\tT_update {:.4f}\tR_min {:.2f}\tR_max {:.2f}\tR_avg {:.2f}'.format(
                 i_iter, log['sample_time'], t1-t0, log['min_reward'], log['max_reward'], log['avg_reward']))
 
-        if args.save_model_interval > 0 and (i_iter+1) % args.save_model_interval == 0:
-            if use_gpu:
-                policy_net.cpu(), value_net.cpu()
-            pickle.dump((policy_net, value_net, running_state),
-                        open(os.path.join(assets_dir(), 'learned_models/{}_a2c.p'.format(args.env_name)), 'wb'))
-            if use_gpu:
-                policy_net.cuda(), value_net.cuda()
+        # if args.save_model_interval > 0 and (i_iter+1) % args.save_model_interval == 0:
+        #     if use_gpu:
+        #         policy_net.cpu(), value_net.cpu()
+        #     pickle.dump((policy_net, value_net, running_state),
+        #                 open(os.path.join(assets_dir(), 'learned_models/{}_a2c.p'.format(args.env_name)), 'wb'))
+        #     if use_gpu:
+        #         policy_net.cuda(), value_net.cuda()
 
 
 main_loop()

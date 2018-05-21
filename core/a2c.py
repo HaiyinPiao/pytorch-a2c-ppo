@@ -1,11 +1,11 @@
 import torch
 from torch.autograd import Variable
 
-from logger import Logger
+# from logger import Logger
 
-# Set the logger
-logger = Logger('./logs') # dive in later
-step=0
+# # Set the logger
+# logger = Logger('./logs') # dive in later
+# step=0
 
 
 
@@ -49,34 +49,34 @@ def a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, a
     print("policy loss:", policy_loss.data[0])
 
 
-    # for tag, value in value_net.named_parameters():
-    #     tag = tag.replace('.', '/')
-    #     print(tag+'/grad', to_np(value.grad))# from Variable to np.array
+    # # for tag, value in value_net.named_parameters():
+    # #     tag = tag.replace('.', '/')
+    # #     print(tag+'/grad', to_np(value.grad))# from Variable to np.array
 
-    global step
+    # global step
 
-    if step%20==0:
-        #============ TensorBoard logging ============#
-        # (1) Log the scalar values
-        info = {
-            'value_loss': value_loss.data[0], # scalar
-            'policy_loss': policy_loss.data[0] # scalar
-        }
-
-
-        for tag, value in info.items():
-            logger.scalar_summary(tag, value, step+1)
+    # if step%20==0:
+    #     #============ TensorBoard logging ============#
+    #     # (1) Log the scalar values
+    #     info = {
+    #         'value_loss': value_loss.data[0], # scalar
+    #         'policy_loss': policy_loss.data[0] # scalar
+    #     }
 
 
-        # (2) Log values and gradients of the parameters (histogram)
-        for tag, value in policy_net.named_parameters():
-            tag = tag.replace('.', '/')
-            logger.histo_summary(tag, to_np(value), step+1) # from Parameter to np.array
-            logger.histo_summary(tag+'/grad', to_np(value.grad), step+1)# from Variable to np.array
+    #     for tag, value in info.items():
+    #         logger.scalar_summary(tag, value, step+1)
 
-        for tag, value in value_net.named_parameters():
-            tag = tag.replace('.', '/')
-            logger.histo_summary(tag, to_np(value), step+1) # from Parameter to np.array
-            logger.histo_summary(tag+'/grad', to_np(value.grad), step+1)# from Variable to np.array
 
-    step+=1
+    #     # (2) Log values and gradients of the parameters (histogram)
+    #     for tag, value in policy_net.named_parameters():
+    #         tag = tag.replace('.', '/')
+    #         logger.histo_summary(tag, to_np(value), step+1) # from Parameter to np.array
+    #         logger.histo_summary(tag+'/grad', to_np(value.grad), step+1)# from Variable to np.array
+
+    #     for tag, value in value_net.named_parameters():
+    #         tag = tag.replace('.', '/')
+    #         logger.histo_summary(tag, to_np(value), step+1) # from Parameter to np.array
+    #         logger.histo_summary(tag+'/grad', to_np(value.grad), step+1)# from Variable to np.array
+
+    # step+=1
