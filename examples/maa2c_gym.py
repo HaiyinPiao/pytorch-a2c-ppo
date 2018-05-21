@@ -154,11 +154,10 @@ def to_tensor_var(x, use_cuda=True, dtype="float"):
         return Variable(ByteTensor(x))
     else:
         x = np.array(x, dtype=np.float64).tolist()
-        return Variable(FloatTensor(x))
+        return Variable(DoubleTensor(x))
  
 
 def update_params(batch):
-    print("here")
     for i in range(len(policy_net)):
         policy_net[i].train()
         value_net[i].train()
@@ -167,21 +166,29 @@ def update_params(batch):
     # actions = torch.from_numpy(np.stack(batch.action))
     # rewards = torch.from_numpy(np.stack(batch.reward))
     # masks = torch.from_numpy(np.stack(batch.mask).astype(np.float64))
-    states = to_tensor_var(batch.state).view(-1, agent.n_agents, agent.obs_shape_n[0])
-    actions = to_tensor_var(batch.action).view(-1, agent.n_agents, agent.act_shape_n[0])
-    rewards = to_tensor_var(batch.reward).view(-1, agent.n_agents, 1)
-    masks = to_tensor_var(batch.mask).view(-1, agent.n_agents, 1)
+    states = to_tensor_var(batch.state,True,"double").view(-1, agent.n_agents, agent.obs_shape_n[0])
+    actions = to_tensor_var(batch.action,True,"double").view(-1, agent.n_agents, agent.act_shape_n[0])
+    rewards = to_tensor_var(batch.reward,True,"double").view(-1, agent.n_agents, 1)
+    masks = to_tensor_var(batch.mask,True,"double").view(-1, agent.n_agents, 1)
 
     whole_states_var = states.view(-1, agent.whole_critic_state_dim)
-    whole_actions_var = actions.view(-1, agent.whole_critic_action_dim)
+    whole_actions_var = actions.view(-1, 1)
 
-    print( whole_states_var, whole_actions_var )
+    # print( whole_states_var, whole_actions_var )
 
 
 
-    # if use_gpu:
-    #     states, actions, rewards, masks = states.cuda(), actions.cuda(), rewards.cuda(), masks.cuda()
-    # values = value_net(Variable(states, volatile=True)).data
+    if use_gpu:
+        states, actions, rewards, masks = states.cuda(), actions.cuda(), rewards.cuda(), masks.cuda()
+        whole_states_var, whole_actions_var = whole_states_var.cuda(), whole_actions_var.cuda()
+    # values = value_net(Variable(whole_states_var, volatile=True)).data
+    values = []
+    for i in range(len(value_net)):
+        # values.append(value_net[i](th.Tensor(whole_states_var)).data)
+        # input = Variable(whole_states_var, volatile=True)
+        values.append(value_net[i](whole_states_var))
+
+    print(values)
 
     # """get advantage estimation from the trajectories"""
     # advantages, returns = estimate_advantages(rewards, masks, values, args.gamma, args.tau, use_gpu)
@@ -195,7 +202,7 @@ def main_loop():
         """generate multiple trajectories that reach the minimum batch_size"""
         batch, log = agent.collect_samples(args.min_batch_size, i_iter)
         t0 = time.time()
-        # update_params(batch)
+        update_params(batch)
         # for i in range(10):
         #     update_params(batch)
         #     # print("update", i_iter, "iteration", i, "updating-step")
