@@ -41,7 +41,7 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
         #     state = running_state(state, update=update_rs)
         reward_episode = 0
 
-        for t in range(10000):
+        for t in range(100):
             action = []
             rewards = []
             state_var = Variable(tensor(state).unsqueeze(0), volatile=True)

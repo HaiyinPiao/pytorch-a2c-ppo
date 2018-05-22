@@ -53,7 +53,7 @@ args = parser.parse_args()
 
 use_gpu = True
 args.env_name = 'BipedalWalker-v2'
-args.model_path = '../assets/learned_models/BipedalWalker-v2_a2c.p'
+#args.model_path = '../assets/learned_models/BipedalWalker-v2_a2c.p'
 
 def env_factory(thread_id):
     env = gym.make(args.env_name)

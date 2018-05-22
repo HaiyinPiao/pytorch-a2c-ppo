@@ -166,10 +166,10 @@ def update_params(batch):
     # actions = torch.from_numpy(np.stack(batch.action))
     # rewards = torch.from_numpy(np.stack(batch.reward))
     # masks = torch.from_numpy(np.stack(batch.mask).astype(np.float64))
-    states = to_tensor_var(batch.state,True,"double").view(-1, agent.n_agents, agent.obs_shape_n[0])
-    actions = to_tensor_var(batch.action,True,"double").view(-1, agent.n_agents, agent.act_shape_n[0])
-    rewards = to_tensor_var(batch.reward,True,"double").view(-1, agent.n_agents, 1)
-    masks = to_tensor_var(batch.mask,True,"double").view(-1, agent.n_agents, 1)
+    states = to_tensor_var(batch.state,True,"double").view(-1, agent.n_agents, agent.obs_shape_n[0]).data
+    actions = to_tensor_var(batch.action,True,"long").view(-1, agent.n_agents, 1).data
+    rewards = to_tensor_var(batch.reward,True,"double").view(-1, agent.n_agents, 1).data
+    masks = to_tensor_var(batch.mask,True,"double").view(-1, agent.n_agents, 1).data
 
     whole_states_var = states.view(-1, agent.whole_critic_state_dim)
     whole_actions_var = actions.view(-1, 1)
@@ -186,15 +186,26 @@ def update_params(batch):
     for i in range(len(value_net)):
         # values.append(value_net[i](th.Tensor(whole_states_var)).data)
         # input = Variable(whole_states_var, volatile=True)
-        values.append(value_net[i](whole_states_var))
+        values.append(value_net[i](Variable(whole_states_var)))
 
-    print(values)
+    # print(rewards, masks, values)
+    values = to_tensor_var(values,True,"double").view(-1, agent.n_agents, 1).data
 
-    # """get advantage estimation from the trajectories"""
+    """get advantage estimation from the trajectories"""
     # advantages, returns = estimate_advantages(rewards, masks, values, args.gamma, args.tau, use_gpu)
+    advantages, returns = [], []
+    for i in range(len(value_net)):
+        adv, ret = estimate_advantages(rewards[:,i,:], masks[:,i,:], values[:,i,:], args.gamma, args.tau, use_gpu)
+        advantages.append(adv)
+        returns.append(ret)
+    #print(advantages, returns)
 
-    # """perform TRPO update"""
-    # a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, actions, returns, advantages, args.l2_reg)
+    advantages = to_tensor_var(advantages[0], True, "double").view(-1, agent.n_agents, 1).data.cuda()
+    returns = to_tensor_var(returns[0], True, "double").view(-1, agent.n_agents, 1).data.cuda()
+
+    """perform TRPO update"""
+    for i in range(len(value_net)):
+        a2c_step(policy_net[i], value_net[i], optimizer_policy[i], optimizer_value[i], states[:,i,:], actions[:,i,:], returns[:,i,:], advantages[:,i,:], args.l2_reg)
 
 
 def main_loop():

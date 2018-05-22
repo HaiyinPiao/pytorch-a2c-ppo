@@ -4,6 +4,7 @@ def estimate_advantages(rewards, masks, values, gamma, tau, use_gpu):
     if use_gpu:
         rewards, masks, values = rewards.cpu(), masks.cpu(), values.cpu()
     tensor_type = type(rewards)
+
     deltas = tensor_type(rewards.size(0), 1)
     advantages = tensor_type(rewards.size(0), 1)
 

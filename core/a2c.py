@@ -37,6 +37,8 @@ def a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, a
     optimizer_value.step()
 
     """update policy"""
+    # TODO
+    actions = actions.view(2100)
     log_probs = policy_net.get_log_prob(Variable(states), Variable(actions))
     policy_loss = -(log_probs * Variable(advantages)).mean()
     optimizer_policy.zero_grad()
