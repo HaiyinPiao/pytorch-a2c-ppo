@@ -17,14 +17,17 @@ def to_var(x): # from tensor to Variable
         x = x.cuda()
     return Variable(x)
 
-def a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, actions, returns, advantages, l2_reg):
+def a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, actions, returns, advantages, l2_reg, i):
 
     policy_net.train()
     value_net.train()
     
     """update critic"""
+    whole_state_dim = states.size(1) * states.size(2)
+    whole_action_dim = actions.size(1) * actions.size(2)
+
     values_target = Variable(returns)
-    values_pred = value_net(Variable(states))
+    values_pred = value_net(Variable(states).view(-1,whole_state_dim))
     value_loss = (values_pred - values_target).pow(2).mean()
 
     # weight decay
@@ -38,8 +41,14 @@ def a2c_step(policy_net, value_net, optimizer_policy, optimizer_value, states, a
 
     """update policy"""
     # TODO
-    actions = actions.view(2100)
-    log_probs = policy_net.get_log_prob(Variable(states), Variable(actions))
+    # actions = actions.view(actions.size(0)*actions.size(1))
+    # print(actions.size(0))
+    # log_probs = policy_net.get_log_prob(Variable(states), Variable(actions))
+    actions = actions[:, i, :]
+    actions = actions.contiguous()
+    actions = actions.view(actions.size(0))
+
+    log_probs = policy_net.get_log_prob(Variable(states[:,i,:]), Variable(actions))
     policy_loss = -(log_probs * Variable(advantages)).mean()
     optimizer_policy.zero_grad()
     policy_loss.backward()

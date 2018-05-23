@@ -35,13 +35,15 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
     # if eps_val < 0.1:
     #     eps_val = 0.1
 
+    # while num_steps < min_batch_size:
     while num_steps < min_batch_size:
         state = env.reset()
         # if running_state is not None:
         #     state = running_state(state, update=update_rs)
         reward_episode = 0
 
-        for t in range(100):
+        for t in range(10000):
+            num_steps += 1
             action = []
             rewards = []
             state_var = Variable(tensor(state).unsqueeze(0), volatile=True)
@@ -70,7 +72,8 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
             # if (next_state[2]<0.2):
             #     reward -=2
             # -------------------------
-            reward_episode += np.mean(reward)
+            print(reward)
+            reward_episode += np.mean(reward[0:3])
             # if running_state is not None:
             #     next_state = running_state(next_state, update=update_rs)
 
@@ -80,20 +83,24 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
             #     min_c_reward = min(min_c_reward, reward)
             #     max_c_reward = max(max_c_reward, reward)
 
-            mask = 0 if done[0] else 1
+            # mask = 0 if done[0] else 1
+            mask = done
 
             memory.push(state, action, mask, next_state, reward)
 
             if render:
                 env.render()
-                time.sleep(0.1)
-            if done[0]:
+                # time.sleep(0.1)
+            # done[3] indicates if the good agents caught
+            if done[3] or num_steps >= min_batch_size:
                 break
+            # if done[0]:
+            #     break
 
             state = next_state
 
         # log stats
-        num_steps += (t + 1)
+        # num_steps += (t + 1)
         num_episodes += 1
         total_reward += reward_episode
         min_reward = min(min_reward, reward_episode)
@@ -160,7 +167,8 @@ class Agent:
         self.whole_critic_action_dim = 0
         for i in range(self.n_agents):
             self.whole_critic_state_dim += self.obs_shape_n[i]
-            self.whole_critic_action_dim += self.act_shape_n[i]
+            self.whole_critic_action_dim += 1
+            # self.whole_critic_action_dim += self.act_shape_n[i]
 
     def collect_samples(self, min_batch_size, g_itr):
 

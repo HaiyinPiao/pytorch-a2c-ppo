@@ -28,7 +28,7 @@ parser.add_argument('--env-name', default="Hopper-v1", metavar='G',
                     help='name of the environment to run')
 parser.add_argument('--model-path', metavar='G',
                     help='path of pre-trained model')
-parser.add_argument('--render', action='store_true', default=False,
+parser.add_argument('--render', action='store_true', default=True,
                     help='render the environment')
 parser.add_argument('--log-std', type=float, default=0, metavar='G',
                     help='log std for the policy (default: 0)')
@@ -42,21 +42,21 @@ parser.add_argument('--num-threads', type=int, default=1, metavar='N',
                     help='number of threads for agent (default: 4)')
 parser.add_argument('--seed', type=int, default=1, metavar='N',
                     help='random seed (default: 1)')
-parser.add_argument('--min-batch-size', type=int, default=2048, metavar='N',
+parser.add_argument('--min-batch-size', type=int, default=100, metavar='N',
                     help='minimal batch size per A2C update (default: 2048)')
 parser.add_argument('--max-iter-num', type=int, default=50000, metavar='N',
                     help='maximal number of main iterations (default: 500)')
 parser.add_argument('--log-interval', type=int, default=1, metavar='N',
                     help='interval between training status logs (default: 1)')
-parser.add_argument('--save-model-interval', type=int, default=10, metavar='N',
+parser.add_argument('--save-model-interval', type=int, default=3, metavar='N',
                     help="interval between saving model (default: 0, means don't save)")
-parser.add_argument('--num-adversaries', type=int, default=0, metavar='N',
+parser.add_argument('--num-adversaries', type=int, default=3, metavar='N',
                     help="num-adversaries (default: 0)")
 args = parser.parse_args()
 
 use_gpu = True
-args.env_name = 'simple'
-# args.model_path = '../assets/learned_models/Cartpole_a2c.p'
+args.env_name = 'simple_tag'
+args.model_path = '../assets/learned_models/simple_tag_a2c.p'
 
 def make_env(scenario_name, benchmark=False):
     from multiagent.environment import MultiAgentEnv
@@ -115,11 +115,11 @@ if args.model_path is None:
         policy_net = Policy(obs_shape_n[i], env_dummy.action_space.shape[0], log_std=args.log_std)
     # value_net = Value(state_dim)
     for i in range(env_dummy.n):
-        value_net.append(Value(obs_shape_n[i]))
+        value_net.append(Value(obs_shape_n[i]*env_dummy.n))
         # print(value_net[i])
 else:
     # TODO
-    policy_net, value_net, running_state = pickle.load(open(args.model_path, "rb"))
+    policy_net, value_net = pickle.load(open(args.model_path, "rb"))
     # policy_net = [env_dummy.observation_space[i].shape[0] for i in range(env_dummy.n)]
 if use_gpu:
     # policy_net = policy_net.cuda()
@@ -172,7 +172,7 @@ def update_params(batch):
     masks = to_tensor_var(batch.mask,True,"double").view(-1, agent.n_agents, 1).data
 
     whole_states_var = states.view(-1, agent.whole_critic_state_dim)
-    whole_actions_var = actions.view(-1, 1)
+    whole_actions_var = actions.view(-1, agent.whole_critic_action_dim)
 
     # print( whole_states_var, whole_actions_var )
 
@@ -200,12 +200,25 @@ def update_params(batch):
         returns.append(ret)
     #print(advantages, returns)
 
-    advantages = to_tensor_var(advantages[0], True, "double").view(-1, agent.n_agents, 1).data.cuda()
-    returns = to_tensor_var(returns[0], True, "double").view(-1, agent.n_agents, 1).data.cuda()
+    # combine n agent's related advantages together
+    tmp_ary = np.empty_like(advantages[0])
+    for i in range(len(advantages)):
+        tmp_ary = np.hstack((tmp_ary, advantages[i]))
+    advantages = tmp_ary[:,1:len(value_net)+1]
+
+    tmp_ary = np.empty_like(returns[0])
+    for i in range(len(returns)):
+        tmp_ary = np.hstack((tmp_ary, returns[i]))
+    returns = tmp_ary[:,1:len(value_net)+1]
+
+    advantages = to_tensor_var(advantages, True, "double").view(-1, agent.n_agents, 1).data.cuda()
+    returns = to_tensor_var(returns, True, "double").view(-1, agent.n_agents, 1).data.cuda()
 
     """perform TRPO update"""
     for i in range(len(value_net)):
-        a2c_step(policy_net[i], value_net[i], optimizer_policy[i], optimizer_value[i], states[:,i,:], actions[:,i,:], returns[:,i,:], advantages[:,i,:], args.l2_reg)
+        # a2c_step(policy_net[i], value_net[i], optimizer_policy[i], optimizer_value[i], states[:,i,:], actions[:,i,:], returns[:,i,:], advantages[:,i,:], args.l2_reg)
+        a2c_step(policy_net[i], value_net[i], optimizer_policy[i], optimizer_value[i], states,
+                 actions, returns[:,i,:], advantages[:,i,:], args.l2_reg, i)
 
 
 def main_loop():
@@ -223,13 +236,17 @@ def main_loop():
             print('{}\tT_sample {:.4f}\tT_update {:.4f}\tR_min {:.2f}\tR_max {:.2f}\tR_avg {:.2f}'.format(
                 i_iter, log['sample_time'], t1-t0, log['min_reward'], log['max_reward'], log['avg_reward']))
 
-        # if args.save_model_interval > 0 and (i_iter+1) % args.save_model_interval == 0:
-        #     if use_gpu:
-        #         policy_net.cpu(), value_net.cpu()
-        #     pickle.dump((policy_net, value_net, running_state),
-        #                 open(os.path.join(assets_dir(), 'learned_models/{}_a2c.p'.format(args.env_name)), 'wb'))
-        #     if use_gpu:
-        #         policy_net.cuda(), value_net.cuda()
+        if args.save_model_interval > 0 and (i_iter+1) % args.save_model_interval == 0:
+            if use_gpu:
+                # policy_net.cpu(), value_net.cpu()
+                for p,v in zip(policy_net, value_net):
+                    p.cpu(), v.cpu()
+            pickle.dump((policy_net, value_net),
+                        open(os.path.join(assets_dir(), 'learned_models/{}_a2c.p'.format(args.env_name)), 'wb'))
+            if use_gpu:
+                # policy_net.cuda(), value_net.cuda()
+                for p,v in zip(policy_net, value_net):
+                    p.cuda(), v.cuda()
 
 
 main_loop()

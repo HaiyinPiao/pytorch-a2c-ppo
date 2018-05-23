@@ -27,7 +27,9 @@ class DiscretePolicy(nn.Module):
 
     def forward(self, x):
         for affine in self.affine_layers:
-            x = self.activation(affine(x))
+            # x = self.activation(affine(x))
+            x = affine(x)
+            x = self.activation(x)
 
         action_prob = F.softmax(self.action_head(x))
         return action_prob
