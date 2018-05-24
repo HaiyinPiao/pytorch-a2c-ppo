@@ -56,7 +56,9 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
                     # action = policy[i].select_ma_action(state_var, n_agents)[0].numpy()
                     action.append(policy[i].select_action(state_var[:,i,:])[0].numpy()[0])
                 # freeze 
-                action[1] = 0
+                # action[0] = 0
+                # action[1] = 0
+                # action[2] = 0
                 # action[0] = 0
                 # eps = np.random.randn(action.size)*eps_val
                 # action = action + eps
@@ -77,7 +79,7 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
             #     reward -=2
             # -------------------------
             # print(reward)
-            reward_episode += np.mean(reward[0])
+            reward_episode += np.mean(reward[3])
             # if running_state is not None:
             #     next_state = running_state(next_state, update=update_rs)
 
@@ -96,7 +98,7 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
                 env.render()
                 # time.sleep(0.1)
             # done[3] indicates if the good agents caught
-            if done[1] or num_steps >= min_batch_size:
+            if done[3] or num_steps >= min_batch_size:
                 break
             # if done[0]:
             #     break

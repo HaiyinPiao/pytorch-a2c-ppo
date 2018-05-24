@@ -28,7 +28,7 @@ parser.add_argument('--env-name', default="Hopper-v1", metavar='G',
                     help='name of the environment to run')
 parser.add_argument('--model-path', metavar='G',
                     help='path of pre-trained model')
-parser.add_argument('--render', action='store_true', default=False,
+parser.add_argument('--render', action='store_true', default=True,
                     help='render the environment')
 parser.add_argument('--log-std', type=float, default=0, metavar='G',
                     help='log std for the policy (default: 0)')
@@ -56,7 +56,7 @@ args = parser.parse_args()
 
 use_gpu = True
 args.env_name = 'simple_tag'
-# args.model_path = '../assets/learned_models/simple_tag_a2c.p'
+args.model_path = '../assets/learned_models/simple_tag_a2c.p'
 
 def make_env(scenario_name, benchmark=False):
     from multiagent.environment import MultiAgentEnv
