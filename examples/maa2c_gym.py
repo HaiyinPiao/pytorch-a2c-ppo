@@ -28,7 +28,7 @@ parser.add_argument('--env-name', default="Hopper-v1", metavar='G',
                     help='name of the environment to run')
 parser.add_argument('--model-path', metavar='G',
                     help='path of pre-trained model')
-parser.add_argument('--render', action='store_true', default=True,
+parser.add_argument('--render', action='store_true', default=False,
                     help='render the environment')
 parser.add_argument('--log-std', type=float, default=0, metavar='G',
                     help='log std for the policy (default: 0)')
@@ -42,7 +42,7 @@ parser.add_argument('--num-threads', type=int, default=1, metavar='N',
                     help='number of threads for agent (default: 4)')
 parser.add_argument('--seed', type=int, default=1, metavar='N',
                     help='random seed (default: 1)')
-parser.add_argument('--min-batch-size', type=int, default=100, metavar='N',
+parser.add_argument('--min-batch-size', type=int, default=256, metavar='N',
                     help='minimal batch size per A2C update (default: 2048)')
 parser.add_argument('--max-iter-num', type=int, default=50000, metavar='N',
                     help='maximal number of main iterations (default: 500)')
@@ -56,7 +56,7 @@ args = parser.parse_args()
 
 use_gpu = True
 args.env_name = 'simple_tag'
-args.model_path = '../assets/learned_models/simple_tag_a2c.p'
+# args.model_path = '../assets/learned_models/simple_tag_a2c.p'
 
 def make_env(scenario_name, benchmark=False):
     from multiagent.environment import MultiAgentEnv
@@ -90,6 +90,8 @@ num_adversaries = min(env_dummy.n, args.num_adversaries)
 
 obs_shape_n = [env_dummy.observation_space[i].shape[0] for i in range(env_dummy.n)]
 act_shape_n = [env_dummy.action_space[i].n for i in range(env_dummy.n)]
+
+# print(obs_shape_n, act_shape_n)
 
 state_dim = obs_shape_n[0]
 action_dim = act_shape_n[0]
@@ -189,7 +191,11 @@ def update_params(batch):
         values.append(value_net[i](Variable(whole_states_var)))
 
     # print(rewards, masks, values)
-    values = to_tensor_var(values,True,"double").view(-1, agent.n_agents, 1).data
+    # values = to_tensor_var(values,True,"double").view(-1, agent.n_agents, 1).data
+
+    # Transpose!
+    values_tmp = [[r[col] for r in values] for col in range(len(values[0]))]
+    values = to_tensor_var(values_tmp,True,"double").view(-1, agent.n_agents,1 ).data.cuda()
 
     """get advantage estimation from the trajectories"""
     # advantages, returns = estimate_advantages(rewards, masks, values, args.gamma, args.tau, use_gpu)
@@ -200,19 +206,27 @@ def update_params(batch):
         returns.append(ret)
     #print(advantages, returns)
 
-    # combine n agent's related advantages together
-    tmp_ary = np.empty_like(advantages[0])
-    for i in range(len(advantages)):
-        tmp_ary = np.hstack((tmp_ary, advantages[i]))
-    advantages = tmp_ary[:,1:len(value_net)+1]
+    # Transpose!
+    advantages = [[r[col] for r in advantages] for col in range(len(advantages[0]))]
+    advantages = to_tensor_var(advantages,True,"double").view(-1, agent.n_agents,1 ).data.cuda()
 
-    tmp_ary = np.empty_like(returns[0])
-    for i in range(len(returns)):
-        tmp_ary = np.hstack((tmp_ary, returns[i]))
-    returns = tmp_ary[:,1:len(value_net)+1]
+    # Transpose!
+    returns = [[r[col] for r in returns] for col in range(len(returns[0]))]
+    returns = to_tensor_var(returns,True,"double").view(-1, agent.n_agents,1 ).data.cuda()
 
-    advantages = to_tensor_var(advantages, True, "double").view(-1, agent.n_agents, 1).data.cuda()
-    returns = to_tensor_var(returns, True, "double").view(-1, agent.n_agents, 1).data.cuda()
+    # # combine n agent's related advantages together
+    # tmp_ary = np.empty_like(advantages[0])
+    # for i in range(len(advantages)):
+    #     tmp_ary = np.hstack((tmp_ary, advantages[i]))
+    # advantages = tmp_ary[:,1:len(value_net)+1]
+
+    # tmp_ary = np.empty_like(returns[0])
+    # for i in range(len(returns)):
+    #     tmp_ary = np.hstack((tmp_ary, returns[i]))
+    # returns = tmp_ary[:,1:len(value_net)+1]
+
+    # advantages = to_tensor_var(advantages, True, "double").view(-1, agent.n_agents, 1).data.cuda()
+    # returns = to_tensor_var(returns, True, "double").view(-1, agent.n_agents, 1).data.cuda()
 
     """perform TRPO update"""
     for i in range(len(value_net)):

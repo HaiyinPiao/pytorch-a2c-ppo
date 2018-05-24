@@ -38,6 +38,7 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
     # while num_steps < min_batch_size:
     while num_steps < min_batch_size:
         state = env.reset()
+        # print(state)
         # if running_state is not None:
         #     state = running_state(state, update=update_rs)
         reward_episode = 0
@@ -54,6 +55,9 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
                 for i in range(n_agents):
                     # action = policy[i].select_ma_action(state_var, n_agents)[0].numpy()
                     action.append(policy[i].select_action(state_var[:,i,:])[0].numpy()[0])
+                # freeze 
+                action[1] = 0
+                # action[0] = 0
                 # eps = np.random.randn(action.size)*eps_val
                 # action = action + eps
                 # np.clip(action, -1., 1.)
@@ -72,8 +76,8 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
             # if (next_state[2]<0.2):
             #     reward -=2
             # -------------------------
-            print(reward)
-            reward_episode += np.mean(reward[0:3])
+            # print(reward)
+            reward_episode += np.mean(reward[0])
             # if running_state is not None:
             #     next_state = running_state(next_state, update=update_rs)
 
@@ -92,7 +96,7 @@ def collect_samples(pid, obs_shape_n, act_shape_n, queue, env, policy, custom_re
                 env.render()
                 # time.sleep(0.1)
             # done[3] indicates if the good agents caught
-            if done[3] or num_steps >= min_batch_size:
+            if done[1] or num_steps >= min_batch_size:
                 break
             # if done[0]:
             #     break
