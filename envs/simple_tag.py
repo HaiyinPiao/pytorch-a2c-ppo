@@ -106,7 +106,7 @@ class Scenario(BaseScenario):
         #     for a in adversaries:
         #         if self.is_collision(a, agent):
         #             rew -= 10
-        return rew
+        # return rew
 
         # agents are penalized for exiting the screen, so that they can be caught by the adversaries
         def bound(x):
